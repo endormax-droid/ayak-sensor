@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ayak Sensörü</title>
+<style>
+  :root{
+    --bg:#f6f7f5;--card:#fff;--fg:#1b1f1d;--mut:#6b726e;--acc:#1f7a4d;--line:#e1e5e2;
+    --err:#b3261e;--warn:#8a5a00;--c1:#d1495b;--c2:#2e86ab;--c3:#3a9d5d;--c4:#1b1f1d
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#121513;--card:#1b1f1d;--fg:#e8ebe9;--mut:#9aa39e;--acc:#4cc38a;--line:#2b312e;
+      --err:#f2b8b5;--warn:#f0c674;--c1:#ff7b8a;--c2:#6cc4ef;--c3:#7ad99a;--c4:#e8ebe9
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  main{max-width:640px;margin:0 auto;padding:20px 16px 48px}
+  h1{font-size:20px;margin:0 0 4px}
+  h2{font-size:12px;font-weight:600;color:var(--mut);margin:22px 0 8px;text-transform:uppercase;letter-spacing:.05em}
+  #st{color:var(--mut);margin:0 0 14px;min-height:1.4em}
+  .ok{color:var(--acc)!important}.err{color:var(--err)!important}
+  button,select{font:inherit;border-radius:10px;padding:12px 14px}
+  button{font-weight:600;border:0;background:var(--acc);color:#fff;width:100%;cursor:pointer}
+  button.sec{background:transparent;color:var(--fg);border:1px solid var(--line)}
+  button:disabled{opacity:.4;cursor:default}
+  select{width:100%;background:var(--card);color:var(--fg);border:1px solid var(--line)}
+  .grid{display:grid;gap:8px}
+  .g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .cell{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+  .cell b{display:block;font-size:18px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cell span{font-size:12px;color:var(--mut)}
+  #demo{display:none;margin:12px 0 0;padding:10px 12px;border-radius:10px;border:1px solid var(--line);color:var(--warn);font-size:14px}
+  canvas{display:block;width:100%;height:160px;margin-top:8px;background:var(--card);border:1px solid var(--line);border-radius:10px}
+  .leg{font-size:12px;color:var(--mut);margin:6px 0 0}
+  .leg i{display:inline-block;width:12px;height:3px;border-radius:2px;margin:0 4px 2px 10px;vertical-align:middle}
+  .leg i:first-child{margin-left:0}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  #rc{margin:8px 0 0;font-size:13px;color:var(--mut);min-height:1.3em}
+</style>
+</head>
+<body>
+<main>
+  <h1>Ayak Sensörü</h1>
+  <p id="st">Bağlı değil</p>
+  <button id="bc">Bağlan</button>
+  <p id="demo">Sensör bağlı değil: grafikteki veri ESP32'nin ürettiği deneme sinyali. Lehimden sonra gerçek veri kendiliğinden gelir.</p>
+
+  <h2>Durum</h2>
+  <div class="grid g3">
+    <div class="cell"><b id="vs">–</b><span>sensör</span></div>
+    <div class="cell"><b id="vi">–</b><span>INT1 testi</span></div>
+    <div class="cell"><b id="vt">–</b><span>çip °C</span></div>
+    <div class="cell"><b id="vh">–</b><span>paket / sn</span></div>
+    <div class="cell"><b id="vl">–</b><span>kayıp paket</span></div>
+    <div class="cell"><b id="vu">–</b><span>çalışma süresi</span></div>
+  </div>
+
+  <h2>İvme (g)</h2>
+  <div class="grid g4">
+    <div class="cell"><b id="xa">–</b><span>x</span></div>
+    <div class="cell"><b id="ya">–</b><span>y</span></div>
+    <div class="cell"><b id="za">–</b><span>z</span></div>
+    <div class="cell"><b id="ma">–</b><span>|a|</span></div>
+  </div>
+  <canvas id="ca"></canvas>
+  <p class="leg"><i style="background:var(--c1)"></i>x<i style="background:var(--c2)"></i>y<i style="background:var(--c3)"></i>z<i style="background:var(--c4)"></i>|a|</p>
+
+  <h2>Jiroskop (°/s)</h2>
+  <div class="grid g3">
+    <div class="cell"><b id="xg">–</b><span>x</span></div>
+    <div class="cell"><b id="yg">–</b><span>y</span></div>
+    <div class="cell"><b id="zg">–</b><span>z</span></div>
+  </div>
+  <canvas id="cg"></canvas>
+  <p class="leg"><i style="background:var(--c1)"></i>x<i style="background:var(--c2)"></i>y<i style="background:var(--c3)"></i>z</p>
+
+  <h2>Veri kaydı</h2>
+  <div class="row">
+    <select id="lb">
+      <option>yürüme</option>
+      <option>küçük adım</option>
+      <option>yan adım</option>
+      <option>split-step</option>
+      <option>sprint</option>
+      <option>sabit</option>
+      <option>diğer</option>
+    </select>
+    <button id="rb" disabled>Kaydı başlat</button>
+  </div>
+  <p id="rc"></p>
+
+  <h2>Test</h2>
+  <button id="led" class="sec" disabled>LED'i yak</button>
+</main>
+
+<script>
+const SVC  = '7a1e0001-5c3b-4d8e-9f2a-1b6c0e4d8a10';
+const DATA = '7a1e0002-5c3b-4d8e-9f2a-1b6c0e4d8a10';
+const CTRL = '7a1e0003-5c3b-4d8e-9f2a-1b6c0e4d8a10';
+const STAT = '7a1e0004-5c3b-4d8e-9f2a-1b6c0e4d8a10';
+const ACC = 0.000488, GYR = 0.070, HZ = 104, N = HZ * 5;   // grafikte son 5 sn
+const NAMES = {0x69: 'LSM6DS3', 0x6A: 'LSM6DS3TR-C', 0x6C: 'LSM6DSO'};
+
+const $ = id => document.getElementById(id);
+let dev = null, ctrl = null, ledOn = false;
+let lastSeq = null, idx = 0, lost = 0, pkt = 0, cur = null, rec = null;
+const A = [[], [], [], []], G = [[], [], []];
+
+function setSt(t, c = '') { $('st').textContent = t; $('st').className = c; }
+function push(buf, vals) {
+  vals.forEach((v, i) => { buf[i].push(v); if (buf[i].length > N) buf[i].shift(); });
+}
+
+if (!navigator.bluetooth) {
+  setSt('Bu tarayıcıda Web Bluetooth yok. Android veya Mac’te Chrome ile, https adresinden aç.', 'err');
+  $('bc').disabled = true;
+}
+
+// ---------- Bağlantı ----------
+$('bc').onclick = async () => {
+  if (dev && dev.gatt.connected) { dev.gatt.disconnect(); return; }
+  try {
+    dev = await navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: 'Ayak' }],
+      optionalServices: [SVC]
+    });
+    dev.ongattserverdisconnected = onDisc;
+    setSt('Bağlanıyor…');
+    const svc  = await (await dev.gatt.connect()).getPrimaryService(SVC);
+    const data = await svc.getCharacteristic(DATA);
+    const stat = await svc.getCharacteristic(STAT);
+    ctrl = await svc.getCharacteristic(CTRL);
+
+    stat.oncharacteristicvaluechanged = e => onStat(e.target.value);
+    onStat(await stat.readValue());
+    await stat.startNotifications();
+
+    lastSeq = null; lost = 0;
+    data.oncharacteristicvaluechanged = onData;
+    await data.startNotifications();
+
+    setSt('Bağlı: ' + dev.name, 'ok');
+    $('bc').textContent = 'Bağlantıyı kes';
+    $('led').disabled = false;
+    $('rb').disabled = false;
+  } catch (e) {
+    if (e.name === 'NotFoundError') setSt('Cihaz seçilmedi');
+    else setSt('Hata: ' + e.message, 'err');
+  }
+};
+
+function onDisc() {
+  setSt('Bağlantı kesildi', 'err');
+  $('bc').textContent = 'Bağlan';
+  $('led').disabled = true;
+  $('rb').disabled = true;
+  ctrl = null;
+  if (rec) stopRec();
+}
+
+// ---------- Gelen veri ----------
+function onStat(v) {
+  const has = v.getUint8(0) & 1, who = v.getUint8(1), i1 = v.getUint8(3);
+  $('vs').textContent = has ? (NAMES[who] || '0x' + who.toString(16)) : 'yok';
+  $('vi').textContent = has && i1 !== 255 ? i1 + '/20' : '–';
+  $('vi').className   = has && i1 !== 255 ? (i1 === 20 ? 'ok' : 'err') : '';
+  $('vt').textContent = (v.getInt16(4, true) / 10).toFixed(1);
+  const up = v.getUint16(6, true);
+  $('vu').textContent = Math.floor(up / 60) + ' dk ' + (up % 60) + ' sn';
+  $('demo').style.display = has ? 'none' : 'block';
+}
+
+function onData(e) {
+  const v = e.target.value, seq = v.getUint16(0, true);
+  if (lastSeq !== null) {
+    const d = (seq - lastSeq) & 0xffff;
+    if (d > 1 && d < 1000) lost += d - 1;
+    idx += (d > 0 && d < 1000) ? d : 1;
+  }
+  lastSeq = seq; pkt++;
+
+  const ax = v.getInt16(2, true) * ACC,  ay = v.getInt16(4, true) * ACC,  az = v.getInt16(6, true) * ACC;
+  const gx = v.getInt16(8, true) * GYR,  gy = v.getInt16(10, true) * GYR, gz = v.getInt16(12, true) * GYR;
+  const a = Math.hypot(ax, ay, az);
+  cur = [ax, ay, az, a, gx, gy, gz];
+  push(A, [ax, ay, az, a]);
+  push(G, [gx, gy, gz]);
+
+  if (rec) {
+    const i = idx - rec.i0;
+    rec.rows.push([i, (i / HZ).toFixed(4), ax.toFixed(4), ay.toFixed(4), az.toFixed(4),
+                   gx.toFixed(2), gy.toFixed(2), gz.toFixed(2), $('lb').value].join(','));
+  }
+}
+
+// ---------- Kayıt (CSV) ----------
+$('rb').onclick = () => rec ? stopRec() : startRec();
+
+function startRec() {
+  rec = { i0: idx, rows: [], start: new Date() };
+  $('rb').textContent = 'Durdur, CSV indir';
+}
+
+function stopRec() {
+  const r = rec; rec = null;
+  $('rb').textContent = 'Kaydı başlat';
+  if (!r.rows.length) { $('rc').textContent = 'Kayıt boş'; return; }
+  const csv = 'i,t_s,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,etiket\n' + r.rows.join('\n');
+  const p = n => String(n).padStart(2, '0'), s = r.start;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = `ayak_${s.getFullYear()}${p(s.getMonth() + 1)}${p(s.getDate())}_${p(s.getHours())}${p(s.getMinutes())}${p(s.getSeconds())}.csv`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  $('rc').textContent = r.rows.length + ' örnek kaydedildi (' + (r.rows.length / HZ).toFixed(1) + ' sn)';
+}
+
+// ---------- LED ----------
+$('led').onclick = async () => {
+  if (!ctrl) return;
+  ledOn = !ledOn;
+  try {
+    await ctrl.writeValueWithResponse(new Uint8Array([ledOn ? 1 : 0]));
+    $('led').textContent = ledOn ? 'LED’i söndür' : 'LED’i yak';
+  } catch (e) {
+    ledOn = !ledOn;
+    setSt('Yazma hatası: ' + e.message, 'err');
+  }
+};
+
+// ---------- Grafik + ekran ----------
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+function chart(cv, series, cols, minR) {
+  const r = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== Math.round(w * r) || cv.height !== Math.round(h * r)) {
+    cv.width = Math.round(w * r); cv.height = Math.round(h * r);
+  }
+  const x = cv.getContext('2d');
+  x.setTransform(r, 0, 0, r, 0, 0);
+  x.clearRect(0, 0, w, h);
+
+  let m = minR;
+  series.forEach(s => s.forEach(v => { const q = Math.abs(v); if (q > m) m = q; }));
+  m *= 1.1;
+
+  x.strokeStyle = css('--line'); x.lineWidth = 1;
+  x.beginPath(); x.moveTo(0, h / 2); x.lineTo(w, h / 2); x.stroke();
+  x.fillStyle = css('--mut'); x.font = '11px system-ui';
+  x.fillText('±' + (m >= 10 ? m.toFixed(0) : m.toFixed(1)), 6, 14);
+
+  series.forEach((s, k) => {
+    if (s.length < 2) return;
+    x.strokeStyle = css(cols[k]); x.lineWidth = 1.5; x.beginPath();
+    const off = N - s.length;
+    s.forEach((v, i) => {
+      const px = (i + off) * w / (N - 1), py = h / 2 - v / m * h / 2;
+      i ? x.lineTo(px, py) : x.moveTo(px, py);
+    });
+    x.stroke();
+  });
+}
+
+let lastUi = 0;
+function frame(t) {
+  chart($('ca'), A, ['--c1', '--c2', '--c3', '--c4'], 2);
+  chart($('cg'), G, ['--c1', '--c2', '--c3'], 100);
+  if (cur && t - lastUi > 100) {
+    lastUi = t;
+    ['xa', 'ya', 'za', 'ma'].forEach((id, i) => $(id).textContent = cur[i].toFixed(2));
+    ['xg', 'yg', 'zg'].forEach((id, i) => $(id).textContent = cur[4 + i].toFixed(0));
+    if (rec) $('rc').textContent = 'Kaydediliyor: ' + rec.rows.length + ' örnek (' + (rec.rows.length / HZ).toFixed(1) + ' sn)';
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+setInterval(() => {
+  const on = dev && dev.gatt.connected;
+  $('vh').textContent = on ? pkt : '–';
+  $('vl').textContent = on ? lost : '–';
+  pkt = 0;
+}, 1000);
+</script>
+</body>
+</html>
