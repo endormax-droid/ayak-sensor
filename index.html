@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#1f7a4d">
 <title>Ayak Sensörü</title>
 <style>
   :root{
@@ -16,10 +17,11 @@
     }
   }
   *{box-sizing:border-box}
+  [hidden]{display:none!important}
   body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
   main{max-width:640px;margin:0 auto;padding:20px 16px 48px}
   h1{font-size:20px;margin:0 0 4px}
-  h2{font-size:12px;font-weight:600;color:var(--mut);margin:22px 0 8px;text-transform:uppercase;letter-spacing:.05em}
+  h2{font-size:12px;font-weight:600;color:var(--mut);margin:24px 0 8px;text-transform:uppercase;letter-spacing:.05em}
   #st{color:var(--mut);margin:0 0 14px;min-height:1.4em}
   .ok{color:var(--acc)!important}.err{color:var(--err)!important}
   button,select{font:inherit;border-radius:10px;padding:12px 14px}
@@ -28,18 +30,20 @@
   button:disabled{opacity:.4;cursor:default}
   select{width:100%;background:var(--card);color:var(--fg);border:1px solid var(--line)}
   .grid{display:grid;gap:8px}
+  .g2{grid-template-columns:repeat(2,minmax(0,1fr))}
   .g3{grid-template-columns:repeat(3,minmax(0,1fr))}
   .g4{grid-template-columns:repeat(4,minmax(0,1fr))}
-  .cell{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
-  .cell b{display:block;font-size:18px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cell{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-width:0}
+  .cell b{display:block;font-size:17px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .cell span{font-size:12px;color:var(--mut)}
-  #demo{display:none;margin:12px 0 0;padding:10px 12px;border-radius:10px;border:1px solid var(--line);color:var(--warn);font-size:14px}
-  canvas{display:block;width:100%;height:160px;margin-top:8px;background:var(--card);border:1px solid var(--line);border-radius:10px}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .note{margin:10px 0 0;font-size:13px;color:var(--mut);min-height:1.3em}
+  #warn{display:none;margin:12px 0 0;padding:10px 12px;border-radius:10px;border:1px solid var(--line);color:var(--warn);font-size:14px}
+  #sum{margin-top:12px}
+  canvas{display:block;width:100%;height:150px;margin-top:8px;background:var(--card);border:1px solid var(--line);border-radius:10px}
   .leg{font-size:12px;color:var(--mut);margin:6px 0 0}
   .leg i{display:inline-block;width:12px;height:3px;border-radius:2px;margin:0 4px 2px 10px;vertical-align:middle}
   .leg i:first-child{margin-left:0}
-  .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  #rc{margin:8px 0 0;font-size:13px;color:var(--mut);min-height:1.3em}
 </style>
 </head>
 <body>
@@ -47,54 +51,57 @@
   <h1>Ayak Sensörü</h1>
   <p id="st">Bağlı değil</p>
   <button id="bc">Bağlan</button>
-  <p id="demo">Sensör bağlı değil: grafikteki veri ESP32'nin ürettiği deneme sinyali. Lehimden sonra gerçek veri kendiliğinden gelir.</p>
+  <p id="warn"></p>
 
-  <h2>Durum</h2>
+  <h2>Cihaz</h2>
   <div class="grid g3">
     <div class="cell"><b id="vs">–</b><span>sensör</span></div>
     <div class="cell"><b id="vi">–</b><span>INT1 testi</span></div>
     <div class="cell"><b id="vt">–</b><span>çip °C</span></div>
-    <div class="cell"><b id="vh">–</b><span>paket / sn</span></div>
-    <div class="cell"><b id="vl">–</b><span>kayıp paket</span></div>
-    <div class="cell"><b id="vu">–</b><span>çalışma süresi</span></div>
+    <div class="cell"><b id="vr">–</b><span>kayıt</span></div>
+    <div class="cell"><b id="ve">–</b><span>kayıt süresi</span></div>
+    <div class="cell"><b id="vm">–</b><span>hafıza</span></div>
   </div>
 
-  <h2>İvme (g)</h2>
-  <div class="grid g4">
-    <div class="cell"><b id="xa">–</b><span>x</span></div>
-    <div class="cell"><b id="ya">–</b><span>y</span></div>
-    <div class="cell"><b id="za">–</b><span>z</span></div>
-    <div class="cell"><b id="ma">–</b><span>|a|</span></div>
-  </div>
-  <canvas id="ca"></canvas>
-  <p class="leg"><i style="background:var(--c1)"></i>x<i style="background:var(--c2)"></i>y<i style="background:var(--c3)"></i>z<i style="background:var(--c4)"></i>|a|</p>
-
-  <h2>Jiroskop (°/s)</h2>
-  <div class="grid g3">
-    <div class="cell"><b id="xg">–</b><span>x</span></div>
-    <div class="cell"><b id="yg">–</b><span>y</span></div>
-    <div class="cell"><b id="zg">–</b><span>z</span></div>
-  </div>
-  <canvas id="cg"></canvas>
-  <p class="leg"><i style="background:var(--c1)"></i>x<i style="background:var(--c2)"></i>y<i style="background:var(--c3)"></i>z</p>
-
-  <h2>Veri kaydı</h2>
+  <h2>Kayıt</h2>
   <div class="row">
     <select id="lb">
-      <option>yürüme</option>
-      <option>küçük adım</option>
-      <option>yan adım</option>
-      <option>split-step</option>
-      <option>sprint</option>
-      <option>sabit</option>
-      <option>diğer</option>
+      <option value="mac">maç</option>
+      <option value="antrenman">antrenman</option>
+      <option value="split-step">split-step</option>
+      <option value="yan-adim">yan adım</option>
+      <option value="kucuk-adim">küçük adım</option>
+      <option value="sprint">sprint</option>
+      <option value="yurume">yürüme</option>
+      <option value="diger">diğer</option>
     </select>
-    <button id="rb" disabled>Kaydı başlat</button>
+    <button id="rs" disabled>Kaydı başlat</button>
   </div>
-  <p id="rc"></p>
+  <div class="row" style="margin-top:8px">
+    <button id="rx" class="sec" disabled>Durdur</button>
+    <button id="dl" class="sec" disabled>İndir (CSV)</button>
+  </div>
+  <p id="rc" class="note"></p>
+  <div id="sum" class="grid g2" hidden>
+    <div class="cell"><b id="s1">–</b><span>başlangıç</span></div>
+    <div class="cell"><b id="s2">–</b><span>toplam süre</span></div>
+    <div class="cell"><b id="s3">–</b><span>hareketli süre</span></div>
+    <div class="cell"><b id="s4">–</b><span>duruş (2 sn+)</span></div>
+    <div class="cell"><b id="s5">–</b><span>en uzun duruş</span></div>
+    <div class="cell"><b id="s6">–</b><span>örnek sayısı</span></div>
+  </div>
 
-  <h2>Test</h2>
-  <button id="led" class="sec" disabled>LED'i yak</button>
+  <h2>Canlı görünüm</h2>
+  <div class="grid g4">
+    <div class="cell"><b id="xa">–</b><span>ax g</span></div>
+    <div class="cell"><b id="ya">–</b><span>ay g</span></div>
+    <div class="cell"><b id="za">–</b><span>az g</span></div>
+    <div class="cell"><b id="vh">–</b><span>paket/sn</span></div>
+  </div>
+  <canvas id="ca"></canvas>
+  <p class="leg"><i style="background:var(--c1)"></i>x<i style="background:var(--c2)"></i>y<i style="background:var(--c3)"></i>z<i style="background:var(--c4)"></i>|a|   ivme (g)</p>
+  <canvas id="cg"></canvas>
+  <p class="leg"><i style="background:var(--c1)"></i>x<i style="background:var(--c2)"></i>y<i style="background:var(--c3)"></i>z   jiroskop (°/s)</p>
 </main>
 
 <script>
@@ -102,18 +109,29 @@ const SVC  = '7a1e0001-5c3b-4d8e-9f2a-1b6c0e4d8a10';
 const DATA = '7a1e0002-5c3b-4d8e-9f2a-1b6c0e4d8a10';
 const CTRL = '7a1e0003-5c3b-4d8e-9f2a-1b6c0e4d8a10';
 const STAT = '7a1e0004-5c3b-4d8e-9f2a-1b6c0e4d8a10';
-const ACC = 0.000488, GYR = 0.070, HZ = 104, N = HZ * 5;   // grafikte son 5 sn
-const NAMES = {0x69: 'LSM6DS3', 0x6A: 'LSM6DS3TR-C', 0x6C: 'LSM6DSO'};
+const DUMP = '7a1e0005-5c3b-4d8e-9f2a-1b6c0e4d8a10';
+const ACC = 0.000488, GYR = 0.070, HZ = 52, N = HZ * 5;   // grafikte son 5 sn
+const A12 = ACC * 16, G12 = GYR * 16;                     // kayıttaki 12 bit ölçek
+const NAMES = {0x69: 'LSM6DS3', 0x6A: 'DS3TR-C', 0x6C: 'LSM6DSO'};
 
 const $ = id => document.getElementById(id);
-let dev = null, ctrl = null, ledOn = false;
-let lastSeq = null, idx = 0, lost = 0, pkt = 0, cur = null, rec = null;
+let dev = null, ctrl = null, st = null, dl = null;
+let pkt = 0, cur = null;
 const A = [[], [], [], []], G = [[], [], []];
 
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+
 function setSt(t, c = '') { $('st').textContent = t; $('st').className = c; }
-function push(buf, vals) {
-  vals.forEach((v, i) => { buf[i].push(v); if (buf[i].length > N) buf[i].shift(); });
+const linked = () => !!(dev && dev.gatt.connected && st);
+const pad = n => String(n).padStart(2, '0');
+function fmtDur(s) {
+  s = Math.round(s);
+  const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60;
+  return h ? `${h} sa ${pad(m)} dk` : `${m} dk ${pad(s % 60)} sn`;
 }
+function fmtDate(d) { return `${pad(d.getDate())}.${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+function isDl(ep) { try { return localStorage.getItem('dl_' + ep) === '1'; } catch (_) { return false; } }
+function markDl(ep) { try { localStorage.setItem('dl_' + ep, '1'); } catch (_) {} }
 
 if (!navigator.bluetooth) {
   setSt('Bu tarayıcıda Web Bluetooth yok. Android veya Mac’te Chrome ile, https adresinden aç.', 'err');
@@ -123,116 +141,269 @@ if (!navigator.bluetooth) {
 // ---------- Bağlantı ----------
 $('bc').onclick = async () => {
   if (dev && dev.gatt.connected) { dev.gatt.disconnect(); return; }
+  let stage = 0;
   try {
-    dev = await navigator.bluetooth.requestDevice({
-      filters: [{ namePrefix: 'Ayak' }],
-      optionalServices: [SVC]
-    });
+    dev = await navigator.bluetooth.requestDevice({ filters: [{ namePrefix: 'Ayak' }], optionalServices: [SVC] });
+    stage = 1;
     dev.ongattserverdisconnected = onDisc;
     setSt('Bağlanıyor…');
-    const svc  = await (await dev.gatt.connect()).getPrimaryService(SVC);
+    const svc = await (await dev.gatt.connect()).getPrimaryService(SVC);
+    stage = 2;
     const data = await svc.getCharacteristic(DATA);
     const stat = await svc.getCharacteristic(STAT);
+    const dump = await svc.getCharacteristic(DUMP);
     ctrl = await svc.getCharacteristic(CTRL);
 
     stat.oncharacteristicvaluechanged = e => onStat(e.target.value);
     onStat(await stat.readValue());
     await stat.startNotifications();
-
-    lastSeq = null; lost = 0;
+    dump.oncharacteristicvaluechanged = onDump;
+    await dump.startNotifications();
     data.oncharacteristicvaluechanged = onData;
     await data.startNotifications();
 
     setSt('Bağlı: ' + dev.name, 'ok');
     $('bc').textContent = 'Bağlantıyı kes';
-    $('led').disabled = false;
-    $('rb').disabled = false;
+    render();
   } catch (e) {
-    if (e.name === 'NotFoundError') setSt('Cihaz seçilmedi');
-    else setSt('Hata: ' + e.message, 'err');
+    if (stage === 0 && e.name === 'NotFoundError') setSt('Cihaz seçilmedi');
+    else setSt('Hata: ' + e.message + (stage === 2 ? ' (cihazdaki kod güncel mi?)' : ''), 'err');
   }
 };
 
 function onDisc() {
-  setSt('Bağlantı kesildi', 'err');
+  setSt('Bağlantı kesildi');
   $('bc').textContent = 'Bağlan';
-  $('led').disabled = true;
-  $('rb').disabled = true;
   ctrl = null;
-  if (rec) stopRec();
+  if (dl && dl.active) {
+    dl.active = false;
+    $('rc').textContent = 'İndirme yarıda kaldı. Yeniden bağlanıp İndir’e bas, kaldığı yerden devam eder.';
+  }
+  render();
 }
 
-// ---------- Gelen veri ----------
+async function send(bytes) {
+  try { await ctrl.writeValueWithResponse(bytes); return true; }
+  catch (e) { setSt('Komut gönderilemedi: ' + e.message, 'err'); return false; }
+}
+
+// ---------- Durum ----------
 function onStat(v) {
-  const has = v.getUint8(0) & 1, who = v.getUint8(1), i1 = v.getUint8(3);
-  $('vs').textContent = has ? (NAMES[who] || '0x' + who.toString(16)) : 'yok';
-  $('vi').textContent = has && i1 !== 255 ? i1 + '/20' : '–';
-  $('vi').className   = has && i1 !== 255 ? (i1 === 20 ? 'ok' : 'err') : '';
-  $('vt').textContent = (v.getInt16(4, true) / 10).toFixed(1);
-  const up = v.getUint16(6, true);
-  $('vu').textContent = Math.floor(up / 60) + ' dk ' + (up % 60) + ' sn';
-  $('demo').style.display = has ? 'none' : 'block';
+  if (v.byteLength < 20) { setSt('Cihazdaki kod eski: yeni ayakkabi_sensor.ino’yu yükle', 'err'); return; }
+  const f = v.getUint8(0);
+  st = {
+    imu: f & 1, rec: f & 2, erasing: f & 4, full: f & 8, paused: f & 16, hasData: f & 32, noPart: f & 64, demo: f & 128,
+    who: v.getUint8(1), int1: v.getUint8(2), pct: v.getUint8(3), temp: v.getInt16(4, true) / 10,
+    used: v.getUint32(8, true), epoch: v.getUint32(12, true), el: v.getUint32(16, true)
+  };
+  render();
+}
+
+function render() {
+  const on = linked();
+  if (st) {
+    $('vs').textContent = st.imu ? (NAMES[st.who] || '0x' + st.who.toString(16)) : 'yok';
+    $('vi').textContent = st.imu && st.int1 !== 255 ? st.int1 + '/20' : '–';
+    $('vi').className   = st.imu && st.int1 !== 255 ? (st.int1 === 20 ? 'ok' : 'err') : '';
+    $('vt').textContent = st.temp.toFixed(1);
+    $('vr').textContent = st.noPart ? 'bölüm yok' : st.erasing ? `hazırlanıyor %${st.pct}` :
+                          st.rec ? (st.paused ? 'kayıtta · duruş' : 'kayıtta') :
+                          st.full ? 'doldu' : st.hasData ? 'durdu' : 'boş';
+    $('vr').className   = st.rec ? 'ok' : st.noPart || st.full ? 'err' : '';
+    $('ve').textContent = st.hasData || st.rec ? fmtDur(st.el) : '–';
+    $('vm').textContent = st.noPart || st.erasing ? '–' : '%' + st.pct;
+
+    const w = st.noPart ? 'Cihazda kayıt bölümü yok. partitions.csv dosyası ayakkabi_sensor.ino ile aynı klasörde olmalı; kodu yeniden yükle.' :
+              !st.imu ? 'Sensör bağlı değil: kayıt DEMO veriyle yapılır (akışı denemek için). Lehimden sonra gerçek veri kendiliğinden gelir.' : '';
+    $('warn').textContent = w;
+    $('warn').style.display = w ? 'block' : 'none';
+    const REC_MSG = 'Kayıt sürüyor. Bağlantıyı kesip telefonu kapatabilirsin; 30 dk hareketsiz kalınca kendiliğinden durur.';
+    if (st.rec && !(dl && dl.active)) $('rc').textContent = REC_MSG;
+    else if (!st.rec && !st.erasing && /^(Kayıt sürüyor|Hafıza hazırlanıyor)/.test($('rc').textContent)) $('rc').textContent = '';
+  }
+  const busy = st && (st.rec || st.erasing);
+  $('rs').disabled = !on || busy || st.noPart;
+  $('rx').disabled = !on || !busy;
+  $('dl').disabled = !on || busy || !st.hasData || (dl && dl.active);
+}
+
+// ---------- Kayıt komutları ----------
+$('rs').onclick = async () => {
+  if (st.hasData && !isDl(st.epoch) &&
+      !confirm('Cihazdaki kayıt henüz indirilmedi ve silinecek. Devam edilsin mi?')) return;
+  const b = new Uint8Array(17);
+  b[0] = 0x10;
+  new DataView(b.buffer).setUint32(1, Math.floor(Date.now() / 1000), true);
+  b.set(new TextEncoder().encode($('lb').value).subarray(0, 12), 5);
+  if (await send(b)) { dl = null; $('sum').hidden = true; $('rc').textContent = 'Hafıza hazırlanıyor (~10 sn)…'; }
+};
+
+$('rx').onclick = () => send(Uint8Array.of(0x11));
+
+// ---------- İndirme ----------
+function req(off) {
+  const b = new Uint8Array(5);
+  b[0] = 0x20;
+  new DataView(b.buffer).setUint32(1, off, true);
+  return b;
+}
+
+$('dl').onclick = async () => {
+  if (!dl || dl.epoch !== st.epoch || dl.total !== st.used)
+    dl = { epoch: st.epoch, total: st.used, buf: new Uint8Array(st.used), got: 0 };
+  Object.assign(dl, { active: true, last: performance.now(), t0: performance.now(), g0: dl.got, resent: false });
+  render();
+  if (!(await send(req(dl.got)))) { dl.active = false; render(); }
+};
+
+function onDump(e) {
+  if (!dl || !dl.active) return;
+  const v = e.target.value, off = v.getUint32(0, true);
+  if (off !== dl.got) {                 // paket kaçtı: kaldığı yerden bir kez yeniden iste
+    if (off > dl.got && !dl.resent) { dl.resent = true; send(req(dl.got)); }
+    return;
+  }
+  const n = Math.min(v.byteLength - 4, dl.total - dl.got);
+  dl.buf.set(new Uint8Array(v.buffer, v.byteOffset + 4, n), dl.got);
+  dl.got += n;
+  dl.last = performance.now();
+  dl.resent = false;
+  if (dl.got >= dl.total) finishDl();
+}
+
+setInterval(() => {                     // ilerleme + takılırsa yeniden isteme
+  if (!dl || !dl.active) return;
+  const now = performance.now();
+  if (now - dl.last > 3000 && linked()) { dl.last = now; send(req(dl.got)); }
+  const kbs = (dl.got - dl.g0) / 1024 / Math.max(0.5, (now - dl.t0) / 1000);
+  $('rc').textContent = `İndiriliyor: %${Math.floor(dl.got * 100 / dl.total)} · ` +
+    `${(dl.got / 1048576).toFixed(2)} / ${(dl.total / 1048576).toFixed(2)} MB · ${kbs.toFixed(1)} KB/sn`;
+}, 500);
+
+function finishDl() {
+  dl.active = false;
+  try {
+    const s = parseRec(dl.buf);
+    saveCsv(s);
+    showSummary(s);
+    markDl(dl.epoch);
+    $('rc').textContent = `İndirildi: ${(dl.total / 1048576).toFixed(2)} MB → CSV (İndirilenler klasörü)`;
+  } catch (e) {
+    $('rc').textContent = 'Veri çözülemedi: ' + e.message;
+  }
+  render();
+}
+
+// ---------- Kayıt formatını çöz ----------
+// sayfa 0: "AYK2", sürüm, Hz, demo, -, başlangıç u32, etiket[12]
+// sayfa 1+: u32 (alt 27 bit ms, üst 5 bit örnek sayısı) + örnekler (9 bayt, 6 x 12 bit)
+function parseRec(bin) {
+  const dv = new DataView(bin.buffer, bin.byteOffset, bin.byteLength);
+  if (String.fromCharCode(bin[0], bin[1], bin[2], bin[3]) !== 'AYK2') throw new Error('başlık bulunamadı');
+  const hz = bin[5], per = 1000 / hz, demo = !!bin[6], epoch = dv.getUint32(8, true);
+  const label = new TextDecoder().decode(bin.subarray(12, 24)).replace(/\0/g, '');
+  const max = Math.max(0, Math.floor(bin.length / 256) - 1) * 28;
+  const t = new Float64Array(max), seg = new Uint32Array(max), v = new Int16Array(max * 6);
+  const pg = [];                        // sayfa başlıkları: [konum, t0, örnek sayısı]
+  for (let p = 256; p + 256 <= bin.length; p += 256) {
+    const h = dv.getUint32(p, true);
+    if (h === 0xFFFFFFFF) break;
+    const cnt = h >>> 27;
+    if (cnt && cnt <= 28) pg.push([p, h & 0x7FFFFFF, cnt]);
+  }
+  // Sensör saati nominal 52 Hz'den birkaç % sapabilir: gerçek örnek aralığını
+  // dolu ve ardışık sayfaların başlangıç zamanlarından ölç (medyan).
+  const ds = [];
+  for (let x = 0; x + 1 < pg.length; x++) {
+    if (pg[x][2] !== 28) continue;
+    const d = (pg[x + 1][1] - pg[x][1]) / 28;
+    if (d > per * 0.9 && d < per * 1.1) ds.push(d);
+  }
+  ds.sort((a, b) => a - b);
+  const pe = ds.length ? ds[ds.length >> 1] : per;
+  const segs = [];
+  let n = 0, prevEnd = -1e9;
+  pg.forEach(([p, t0, cnt], x) => {
+    let dt = pe;                        // sayfa içi örnek aralığı
+    if (cnt === 28 && x + 1 < pg.length) {
+      const d = (pg[x + 1][1] - t0) / 28;
+      if (Math.abs(d - pe) < pe * 0.015) dt = d;   // %1,5'ten fazla fark = arada örnek kaçmış
+    }
+    if (t0 - prevEnd > 2.5 * pe) segs.push({ s: t0, e: t0 });
+    for (let i = 0; i < cnt; i++) {
+      const o = p + 4 + i * 9, k = n * 6;
+      for (let j = 0; j < 3; j++) {
+        const q = o + j * 3;
+        const a = bin[q] | ((bin[q + 1] & 15) << 8), b = (bin[q + 1] >> 4) | (bin[q + 2] << 4);
+        v[k + j * 2] = (a << 20) >> 20;
+        v[k + j * 2 + 1] = (b << 20) >> 20;
+      }
+      t[n] = t0 + i * dt;
+      seg[n] = segs.length - 1;
+      n++;
+    }
+    prevEnd = t0 + (cnt - 1) * dt;
+    segs[segs.length - 1].e = prevEnd;
+  });
+  return { hz, per: pe, demo, epoch, label, n, t, seg, v, segs };
+}
+
+function saveCsv(s) {
+  const parts = ['t_s,seg,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps\n'];
+  let rows = [];
+  for (let i = 0; i < s.n; i++) {
+    const k = i * 6, v = s.v;
+    rows.push(`${(s.t[i] / 1000).toFixed(3)},${s.seg[i]},${(v[k] * A12).toFixed(3)},${(v[k + 1] * A12).toFixed(3)},` +
+              `${(v[k + 2] * A12).toFixed(3)},${(v[k + 3] * G12).toFixed(1)},${(v[k + 4] * G12).toFixed(1)},${(v[k + 5] * G12).toFixed(1)}`);
+    if (rows.length === 20000) { parts.push(rows.join('\n') + '\n'); rows = []; }
+  }
+  if (rows.length) parts.push(rows.join('\n') + '\n');
+  const d = new Date(s.epoch * 1000);
+  const name = `${s.demo ? 'DEMO_' : ''}ayak_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_` +
+               `${pad(d.getHours())}${pad(d.getMinutes())}_${s.label || 'kayit'}.csv`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(parts, { type: 'text/csv' }));
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+
+// Ön özet: sadece cihazın duruş işaretlerinden (adım/split-step analizi ilk maçlardan sonra eklenecek)
+function showSummary(s) {
+  if (!s.n) { $('sum').hidden = true; return; }
+  const per = s.per;
+  let moving = 0, longest = 0;
+  s.segs.forEach(g => moving += g.e - g.s + per);
+  const total = s.segs[s.segs.length - 1].e + per;
+  const gaps = [];
+  for (let i = 1; i < s.segs.length; i++) gaps.push(s.segs[i].s - s.segs[i - 1].e - per + 2500);  // +2 sn öncesi, +0,5 sn sonrası
+  gaps.forEach(g => longest = Math.max(longest, g));
+  $('s1').textContent = fmtDate(new Date(s.epoch * 1000)) + (s.demo ? ' · DEMO' : '');
+  $('s2').textContent = fmtDur(total / 1000);
+  $('s3').textContent = `${fmtDur(moving / 1000)} (%${Math.round(moving * 100 / total)})`;
+  $('s4').textContent = gaps.length + ' kez';
+  $('s5').textContent = gaps.length ? fmtDur(longest / 1000) : '–';
+  $('s6').textContent = s.n.toLocaleString('tr-TR');
+  $('sum').hidden = false;
+}
+
+// ---------- Canlı veri ----------
+function push(buf, vals) {
+  vals.forEach((x, i) => { buf[i].push(x); if (buf[i].length > N) buf[i].shift(); });
 }
 
 function onData(e) {
-  const v = e.target.value, seq = v.getUint16(0, true);
-  if (lastSeq !== null) {
-    const d = (seq - lastSeq) & 0xffff;
-    if (d > 1 && d < 1000) lost += d - 1;
-    idx += (d > 0 && d < 1000) ? d : 1;
-  }
-  lastSeq = seq; pkt++;
-
-  const ax = v.getInt16(2, true) * ACC,  ay = v.getInt16(4, true) * ACC,  az = v.getInt16(6, true) * ACC;
-  const gx = v.getInt16(8, true) * GYR,  gy = v.getInt16(10, true) * GYR, gz = v.getInt16(12, true) * GYR;
-  const a = Math.hypot(ax, ay, az);
-  cur = [ax, ay, az, a, gx, gy, gz];
-  push(A, [ax, ay, az, a]);
+  const v = e.target.value;
+  const ax = v.getInt16(2, true) * ACC, ay = v.getInt16(4, true) * ACC, az = v.getInt16(6, true) * ACC;
+  const gx = v.getInt16(8, true) * GYR, gy = v.getInt16(10, true) * GYR, gz = v.getInt16(12, true) * GYR;
+  cur = [ax, ay, az];
+  push(A, [ax, ay, az, Math.hypot(ax, ay, az)]);
   push(G, [gx, gy, gz]);
-
-  if (rec) {
-    const i = idx - rec.i0;
-    rec.rows.push([i, (i / HZ).toFixed(4), ax.toFixed(4), ay.toFixed(4), az.toFixed(4),
-                   gx.toFixed(2), gy.toFixed(2), gz.toFixed(2), $('lb').value].join(','));
-  }
+  pkt++;
 }
 
-// ---------- Kayıt (CSV) ----------
-$('rb').onclick = () => rec ? stopRec() : startRec();
+setInterval(() => { $('vh').textContent = linked() ? pkt : '–'; pkt = 0; }, 1000);
 
-function startRec() {
-  rec = { i0: idx, rows: [], start: new Date() };
-  $('rb').textContent = 'Durdur, CSV indir';
-}
-
-function stopRec() {
-  const r = rec; rec = null;
-  $('rb').textContent = 'Kaydı başlat';
-  if (!r.rows.length) { $('rc').textContent = 'Kayıt boş'; return; }
-  const csv = 'i,t_s,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,etiket\n' + r.rows.join('\n');
-  const p = n => String(n).padStart(2, '0'), s = r.start;
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-  a.download = `ayak_${s.getFullYear()}${p(s.getMonth() + 1)}${p(s.getDate())}_${p(s.getHours())}${p(s.getMinutes())}${p(s.getSeconds())}.csv`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-  $('rc').textContent = r.rows.length + ' örnek kaydedildi (' + (r.rows.length / HZ).toFixed(1) + ' sn)';
-}
-
-// ---------- LED ----------
-$('led').onclick = async () => {
-  if (!ctrl) return;
-  ledOn = !ledOn;
-  try {
-    await ctrl.writeValueWithResponse(new Uint8Array([ledOn ? 1 : 0]));
-    $('led').textContent = ledOn ? 'LED’i söndür' : 'LED’i yak';
-  } catch (e) {
-    ledOn = !ledOn;
-    setSt('Yazma hatası: ' + e.message, 'err');
-  }
-};
-
-// ---------- Grafik + ekran ----------
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
 function chart(cv, series, cols, minR) {
@@ -243,16 +414,13 @@ function chart(cv, series, cols, minR) {
   const x = cv.getContext('2d');
   x.setTransform(r, 0, 0, r, 0, 0);
   x.clearRect(0, 0, w, h);
-
   let m = minR;
   series.forEach(s => s.forEach(v => { const q = Math.abs(v); if (q > m) m = q; }));
   m *= 1.1;
-
   x.strokeStyle = css('--line'); x.lineWidth = 1;
   x.beginPath(); x.moveTo(0, h / 2); x.lineTo(w, h / 2); x.stroke();
   x.fillStyle = css('--mut'); x.font = '11px system-ui';
   x.fillText('±' + (m >= 10 ? m.toFixed(0) : m.toFixed(1)), 6, 14);
-
   series.forEach((s, k) => {
     if (s.length < 2) return;
     x.strokeStyle = css(cols[k]); x.lineWidth = 1.5; x.beginPath();
@@ -266,25 +434,18 @@ function chart(cv, series, cols, minR) {
 }
 
 let lastUi = 0;
-function frame(t) {
-  chart($('ca'), A, ['--c1', '--c2', '--c3', '--c4'], 2);
-  chart($('cg'), G, ['--c1', '--c2', '--c3'], 100);
-  if (cur && t - lastUi > 100) {
-    lastUi = t;
-    ['xa', 'ya', 'za', 'ma'].forEach((id, i) => $(id).textContent = cur[i].toFixed(2));
-    ['xg', 'yg', 'zg'].forEach((id, i) => $(id).textContent = cur[4 + i].toFixed(0));
-    if (rec) $('rc').textContent = 'Kaydediliyor: ' + rec.rows.length + ' örnek (' + (rec.rows.length / HZ).toFixed(1) + ' sn)';
+function frame(ts) {
+  if (!document.hidden) {
+    chart($('ca'), A, ['--c1', '--c2', '--c3', '--c4'], 2);
+    chart($('cg'), G, ['--c1', '--c2', '--c3'], 100);
+    if (cur && ts - lastUi > 150) {
+      lastUi = ts;
+      ['xa', 'ya', 'za'].forEach((id, i) => $(id).textContent = cur[i].toFixed(2));
+    }
   }
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-
-setInterval(() => {
-  const on = dev && dev.gatt.connected;
-  $('vh').textContent = on ? pkt : '–';
-  $('vl').textContent = on ? lost : '–';
-  pkt = 0;
-}, 1000);
 </script>
 </body>
 </html>
