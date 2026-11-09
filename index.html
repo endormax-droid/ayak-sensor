@@ -63,20 +63,8 @@
     <div class="cell"><b id="vm">–</b><span>hafıza</span></div>
   </div>
 
-  <h2>Kayıt</h2>
-  <div class="row">
-    <select id="lb">
-      <option value="mac">maç</option>
-      <option value="antrenman">antrenman</option>
-      <option value="split-step">split-step</option>
-      <option value="yan-adim">yan adım</option>
-      <option value="kucuk-adim">küçük adım</option>
-      <option value="sprint">sprint</option>
-      <option value="yurume">yürüme</option>
-      <option value="diger">diğer</option>
-    </select>
-    <button id="rs" disabled>Kaydı başlat</button>
-  </div>
+  <h2>Maç kaydı</h2>
+  <button id="rs" disabled>Maç kaydını başlat</button>
   <div class="row" style="margin-top:8px">
     <button id="rx" class="sec" disabled>Durdur</button>
     <button id="dl" class="sec" disabled>İndir (CSV)</button>
@@ -90,6 +78,22 @@
     <div class="cell"><b id="s5">–</b><span>en uzun duruş</span></div>
     <div class="cell"><b id="s6">–</b><span>örnek sayısı</span></div>
   </div>
+
+  <h2>Kalibrasyon</h2>
+  <p class="note" style="margin-top:0">Her hareketi ayrı kaydet: seç, başlat, 20–30 tekrar yap, durdur. Veri telefona canlı gelir;
+    bu sayfa açık ve önde kalmalı (ekran kendiliğinden kapanmaz). Cihazdaki maç kaydına dokunmaz.</p>
+  <div class="row" style="margin-top:8px">
+    <select id="lb">
+      <option value="split-step">split-step</option>
+      <option value="yan-adim">yan adım</option>
+      <option value="kucuk-adim">küçük adım</option>
+      <option value="sprint">sprint / ileri koşu</option>
+      <option value="yurume">yürüme</option>
+      <option value="sabit">sabit duruş</option>
+    </select>
+    <button id="cb" class="sec" disabled>Başlat</button>
+  </div>
+  <p id="cc" class="note"></p>
 
   <h2>Canlı görünüm</h2>
   <div class="grid g4">
@@ -116,7 +120,7 @@ const NAMES = {0x69: 'LSM6DS3', 0x6A: 'DS3TR-C', 0x6C: 'LSM6DSO'};
 
 const $ = id => document.getElementById(id);
 let dev = null, ctrl = null, st = null, dl = null;
-let pkt = 0, cur = null;
+let pkt = 0, cur = null, cal = null, wake = null;
 const A = [[], [], [], []], G = [[], [], []];
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
@@ -179,6 +183,7 @@ function onDisc() {
     dl.active = false;
     $('rc').textContent = 'İndirme yarıda kaldı. Yeniden bağlanıp İndir’e bas, kaldığı yerden devam eder.';
   }
+  if (cal) stopCal('bağlantı koptu');
   render();
 }
 
@@ -225,6 +230,8 @@ function render() {
   $('rs').disabled = !on || busy || st.noPart;
   $('rx').disabled = !on || !busy;
   $('dl').disabled = !on || busy || !st.hasData || (dl && dl.active);
+  $('cb').disabled = !cal && (!on || (dl && dl.active));
+  $('lb').disabled = !!cal;
 }
 
 // ---------- Kayıt komutları ----------
@@ -234,7 +241,7 @@ $('rs').onclick = async () => {
   const b = new Uint8Array(17);
   b[0] = 0x10;
   new DataView(b.buffer).setUint32(1, Math.floor(Date.now() / 1000), true);
-  b.set(new TextEncoder().encode($('lb').value).subarray(0, 12), 5);
+  b.set(new TextEncoder().encode('mac'), 5);
   if (await send(b)) { dl = null; $('sum').hidden = true; $('rc').textContent = 'Hafıza hazırlanıyor (~10 sn)…'; }
 };
 
@@ -400,7 +407,54 @@ function onData(e) {
   push(A, [ax, ay, az, Math.hypot(ax, ay, az)]);
   push(G, [gx, gy, gz]);
   pkt++;
+  if (cal) calSample(v.getUint16(0, true), ax, ay, az, gx, gy, gz);
 }
+
+// ---------- Kalibrasyon: canlı veriden etiketli CSV ----------
+// Sütunlar maç CSV'si ile aynı; kaçan paket olursa seg artar, t_s'de boşluk kalır.
+$('cb').onclick = () => cal ? stopCal() : startCal();
+
+async function startCal() {
+  cal = { label: $('lb').value, start: new Date(), rows: [], last: null, idx: 0, seg: 0, lost: 0 };
+  $('cb').textContent = 'Durdur, CSV indir';
+  $('cc').textContent = 'Kaydediliyor…';
+  try { wake = await navigator.wakeLock.request('screen'); } catch (_) { wake = null; }
+  render();
+}
+
+function calSample(seq, ax, ay, az, gx, gy, gz) {
+  if (cal.last !== null) {
+    const d = (seq - cal.last) & 0xffff;
+    if (d === 0 || d > 1000) return;
+    if (d > 1) { cal.lost += d - 1; cal.seg++; }
+    cal.idx += d;
+  }
+  cal.last = seq;
+  cal.rows.push(`${(cal.idx / HZ).toFixed(3)},${cal.seg},${ax.toFixed(4)},${ay.toFixed(4)},${az.toFixed(4)},` +
+                `${gx.toFixed(2)},${gy.toFixed(2)},${gz.toFixed(2)}`);
+}
+
+function stopCal(why) {
+  const c = cal;
+  cal = null;
+  $('cb').textContent = 'Başlat';
+  if (wake) { wake.release().catch(() => {}); wake = null; }
+  if (!c.rows.length) { $('cc').textContent = 'Kayıt boş' + (why ? ` (${why})` : ''); render(); return; }
+  const s = c.start;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['t_s,seg,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps\n' + c.rows.join('\n') + '\n'],
+                                        { type: 'text/csv' }));
+  a.download = `kalib_${s.getFullYear()}${pad(s.getMonth() + 1)}${pad(s.getDate())}_${pad(s.getHours())}${pad(s.getMinutes())}_${c.label}.csv`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  $('cc').textContent = `${c.label}: ${(c.rows.length / HZ).toFixed(1)} sn kaydedildi, kayıp paket ${c.lost}` +
+                        (why ? ` (${why})` : '');
+  render();
+}
+
+setInterval(() => {
+  if (cal) $('cc').textContent = `Kaydediliyor: ${(cal.rows.length / HZ).toFixed(1)} sn · kayıp paket ${cal.lost}`;
+}, 500);
 
 setInterval(() => { $('vh').textContent = linked() ? pkt : '–'; pkt = 0; }, 1000);
 
